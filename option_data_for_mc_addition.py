@@ -103,7 +103,7 @@ def import_form(pri, range_start): #整理成QM讀取CSV的格式
     
 def op_out(pri, Filename): #輸出成csv
     my_folder_path = "C:/Users/a0985/OneDrive/Desktop/期貨/資料/op_data_add" #到價平和資料夾
-    file_address = my_folder_path + "/" + "_op_price_" + Filename + ".csv"
+    file_address = my_folder_path + "/" + "_op_price_" + Filename + "_add.csv"
     pri['Time'] = pri['Time'].astype('int')
     #print(pri.dtypes)
     pri = pri.dropna().reset_index(drop = True) #把有nan的列delete
