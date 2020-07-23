@@ -172,13 +172,16 @@ def group_by_strike_price(txo_df ,time_format_in_origin_file_name, transaction_s
     txo_df = txo_df.sort_values(['排序依據'],ascending = True) #根據時間由遠到近sort
     txo_df = txo_df.reset_index(drop = True) #sort後目錄重置
     
+    '''
     #####設定要抓的履約價範圍#####
     strike_price_start_value = 11000
     strike_price_end_value = 12000
     strike_price_gap = 50
+    ''' 
+    price_flat_sum = pd.DataFrame() #處理尋找價平和的df
     
     #####依照不同履約價處理每日日盤逐筆交易#####
-    while strike_price_start_value <= strike_price_end_value: 
+    for strike_price_start_value in np.unique(txo_df['履約價格'].astype(int)):
         price_name = txo_df[ txo_df['履約價格'] == str(strike_price_start_value) ] #依照不同履約價分類df
         price_name = price_name.reset_index(drop = True)
         
@@ -197,7 +200,7 @@ def group_by_strike_price(txo_df ,time_format_in_origin_file_name, transaction_s
         price_name = get_transaction_second_df_to_price_name(price_name, transaction_second_index)
         
         #####得到價平和欄位並補上成交日期#####
-        price_name['成交價格'] = price_name['call'] + price_name['put'] #價平和
+        price_name['成交價格'] = price_name['call'] + price_name['put'] 
         
         time_format_in_origin_file_name = time_format_in_origin_file_name.replace('_','')
         price_name['成交日期'] = time_format_in_origin_file_name 
@@ -217,11 +220,39 @@ def group_by_strike_price(txo_df ,time_format_in_origin_file_name, transaction_s
             #####整理成QM讀取CSV的格式#####
             #function
             get_import_form(price_name, strike_price_start_value) 
-        
-        strike_price_start_value = strike_price_start_value + strike_price_gap
+            
+        price_flat_sum[str(strike_price_start_value)] = price_name['成交價格']
+        #strike_price_start_value = strike_price_start_value + strike_price_gap
+    
+    #####找到每筆資料的價平和#####
+    #function
+    find_transaction_second_price_flat_sum(price_flat_sum, time_format_in_origin_file_name)
     
     return txo_df;
+
+def find_transaction_second_price_flat_sum(price_flat_sum, time_format_in_origin_file_name) :
     
+    price_flat_sum.index = transaction_second_index #把index換成交易時間
+    price_flat_sum['成交價格'] = price_flat_sum.min(axis = 1) #找出每個時間段最小成交點數
+    price_flat_sum['價平和'] = price_flat_sum.idxmin(axis = 1) #找出上述之所屬履約價
+    price_flat_sum['成交日期'] = time_format_in_origin_file_name
+    
+    price_flat_sum.reset_index(level=0, inplace=True) #成交時間賦歸欄位
+    price_flat_sum.rename(columns={'index':'成交時間'}, inplace=True)    
+    
+    price_flat_sum_call_plus_put = price_flat_sum[['成交日期', '成交時間', '成交價格']]
+    price_flat_sum_strike_price = price_flat_sum[['成交日期', '成交時間', '成交價格', '價平和']]
+    
+    #####準備輸出當日價平和的call+put資訊#####
+    #function
+    get_import_form(price_flat_sum_call_plus_put, "_call_plus+put_transaction_seccond_price_flat_sum")
+    
+    get_import_form(price_flat_sum_strike_price, "_strike_price_transaction_seccond_price_flat_sum")
+    #print(price_flat_sum)
+    
+    return;
+
+
 def get_import_form(price_name, strike_price_start_value): #整理成QM讀取CSV的格式
     
     #####輸出csv的名字依照履約價命名#####
@@ -229,12 +260,18 @@ def get_import_form(price_name, strike_price_start_value): #整理成QM讀取CSV
     
     #####'Date', 'Time', 'Price', 'Open', 'High', 'Low', 'Close','Volume'為QM的import格式#####
     price_name.rename(columns={'成交時間':'Time','成交日期':'Date'}, inplace = True)
-    price_name['Volume'] = 0
+    
+    if '價平和' in price_name.columns : #若此df為記錄價平和，則volume存放當筆之價平和履約價
+        price_name['Price'] = price_name['價平和']
+    else :
+        price_name['Price'] = price_name['成交價格']
+        
+    price_name['Volume'] = 0    
     price_name['Open'] = price_name['Low'] = 0
     price_name['High'] = price_name['Close'] = price_name['成交價格']
-    price_name['Price'] = 0
     
-    complete_strike_price_data = price_name[['Date', 'Time', 'Price', 'Open', 'High', 'Low', 'Close','Volume']]
+    
+    complete_strike_price_data = price_name[['Date', 'Time', 'Price', 'Volume']]
     complete_strike_price_data['Time'] = complete_strike_price_data['Time'].astype('int')
     complete_strike_price_data = complete_strike_price_data.dropna().reset_index(drop = True) #把有nan的列delete
     complete_strike_price_data = complete_strike_price_data.reset_index(drop=True) #成交時間賦歸欄位
@@ -283,7 +320,7 @@ if __name__ == "__main__":
         time_format_in_origin_file_name = start_date.strftime('%Y_%m_%d')
         
         #讀取原始資料
-        origin_df = read_origin_data(time_format_in_origin_file_name);
+        origin_df = read_origin_data(time_format_in_origin_file_name)
         print(time_format_in_origin_file_name,whether_data_is_null_flag)
         
         if(whether_data_is_null_flag == 0):
