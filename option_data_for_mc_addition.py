@@ -199,14 +199,14 @@ def group_by_strike_price(txo_df ,time_format_in_origin_file_name, transaction_s
         #function
         price_name = get_transaction_second_df_to_price_name(price_name, transaction_second_index)
         
-        #####得到價平和欄位並補上成交日期#####
+        #####得到成交價格欄位並補上成交日期#####
         price_name['成交價格'] = price_name['call'] + price_name['put'] 
         
         time_format_in_origin_file_name = time_format_in_origin_file_name.replace('_','')
         price_name['成交日期'] = time_format_in_origin_file_name 
         price_name.reset_index(level=0, inplace=True) #成交時間賦歸欄位
         
-        #####完整的當天個別履約價逐筆價平和資料df#####
+        #####完整的當天個別履約價逐筆資料df#####
         price_name = price_name[['成交日期','成交時間','成交價格']]
         
         #print(strike_price_start_value)
@@ -245,7 +245,7 @@ def find_transaction_second_price_flat_sum(price_flat_sum, time_format_in_origin
     
     #####準備輸出當日價平和的call+put資訊#####
     #function
-    get_import_form(price_flat_sum_call_plus_put, "_call_plus+put_transaction_seccond_price_flat_sum")
+    get_import_form(price_flat_sum_call_plus_put, "_call_plus_put_transaction_seccond_price_flat_sum")
     
     get_import_form(price_flat_sum_strike_price, "_strike_price_transaction_seccond_price_flat_sum")
     #print(price_flat_sum)
@@ -258,7 +258,7 @@ def get_import_form(price_name, strike_price_start_value): #整理成QM讀取CSV
     #####輸出csv的名字依照履約價命名#####
     Filename:str = str(strike_price_start_value)
     
-    #####'Date', 'Time', 'Price', 'Open', 'High', 'Low', 'Close','Volume'為QM的import格式#####
+    #####'Date', 'Time', 'Price','Volume'為QM的import格式#####
     price_name.rename(columns={'成交時間':'Time','成交日期':'Date'}, inplace = True)
     
     if '價平和' in price_name.columns : #若此df為記錄價平和，則volume存放當筆之價平和履約價
@@ -286,8 +286,8 @@ def get_import_form(price_name, strike_price_start_value): #整理成QM讀取CSV
 def output_to_csv_by_strike_price(complete_strike_price_data, Filename) :
     
     #####設定輸出位置#####
-    my_folder_path = "C:/Users/a0985/OneDrive/Desktop/期貨/資料/op_data" #到價平和資料夾
-    file_address = my_folder_path + "/" + "_op_price_" + Filename + ".csv"
+    my_folder_path = "C:/Users/a0985/OneDrive/Desktop/期貨/資料/op_data_add" #到價平和資料夾
+    file_address = my_folder_path + "/" + "_op_price_" + Filename + "_add.csv"
     
     if os.path.isfile(file_address) : 
         
@@ -306,7 +306,7 @@ def output_to_csv_by_strike_price(complete_strike_price_data, Filename) :
 
 
 if __name__ == "__main__":
-    start_date = datetime.datetime(2020, 6, 30) #代表資料從何時開始
+    start_date = datetime.datetime(2019, 12, 31) #代表資料從何時開始
     
     transaction_second_index = list() #交易時段為8:45:00 ~ 13:45:00
     
