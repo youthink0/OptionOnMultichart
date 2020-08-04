@@ -28,6 +28,7 @@ def get_transaction_second_index(transaction_second_index) :
     return transaction_second_index;
 
 
+
 def erase_redundant_space_and_value(origin_df) :
     origin_df.rename(columns={' 成交日期':'成交日期','          商品代號':'商品代號','        履約價格':'履約價格'}, inplace = True)
     origin_df.rename(columns={'                                                      到期月份(週別)':'到期月份(週別)'}, inplace=True)
