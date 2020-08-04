@@ -207,7 +207,7 @@ def group_by_strike_price(txo_df ,time_format_in_origin_file_name, transaction_s
         price_name.reset_index(level=0, inplace=True) #成交時間賦歸欄位
         
         #####完整的當天個別履約價逐筆資料df#####
-        price_name = price_name[['成交日期','成交時間','成交價格']]
+        price_name = price_name[['成交日期','成交時間','成交價格','call','put']]
         
         #print(strike_price_start_value)
         #print(price_name)
@@ -219,12 +219,14 @@ def group_by_strike_price(txo_df ,time_format_in_origin_file_name, transaction_s
             a = 1
             #####整理成QM讀取CSV的格式#####
             #function
-            get_import_form(price_name, strike_price_start_value) 
-            
-        price_flat_sum[str(strike_price_start_value)] = price_name['成交價格']
+            price_name = price_name[['成交日期','成交時間','成交價格']]
+            get_import_form(price_name, strike_price_start_value) #生成每個履約價的逐筆成交點數
+        
+        
+        price_flat_sum[str(strike_price_start_value)] = price_name['成交價格'] #此DF用來尋找價平和
         #strike_price_start_value = strike_price_start_value + strike_price_gap
     
-    #####找到每筆資料的價平和#####
+    #####找到逐筆時間的價平和#####
     #function
     find_transaction_second_price_flat_sum(price_flat_sum, time_format_in_origin_file_name)
     
