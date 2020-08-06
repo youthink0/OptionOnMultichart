@@ -354,7 +354,7 @@ def output_to_csv_by_strike_price(complete_strike_price_data, Filename) :
 
 if __name__ == "__main__":
     n = 1
-    #start_date = datetime.datetime(2020, 7, 5) #代表資料從何時開始
+    #start_date = datetime.datetime(2020, 7, 6) #代表資料從何時開始
     start_date = datetime.date.today() #代表資料從何時開始
     start_date = start_date - datetime.timedelta(days=1)
     end_date = datetime.date.today()
@@ -369,10 +369,11 @@ if __name__ == "__main__":
     
     while time_format_in_origin_file_name != end_date : #匯入資料直到指定停止日期
         start_date = start_date + datetime.timedelta(days=n)
-        time_format_in_origin_file_name = start_date.strftime('%Y_%m_%d')
         
         #讀取原始資料l
         origin_df = read_origin_data(time_format_in_origin_file_name)
+        
+        
         print(time_format_in_origin_file_name,whether_data_is_null_flag)
         
         if(whether_data_is_null_flag == 0):
@@ -382,4 +383,6 @@ if __name__ == "__main__":
 
             #開始依照履約價格分類，依照日期順序
             st = group_by_strike_price(txo_df, time_format_in_origin_file_name, transaction_second_index);
+            print('ok')
             #print(st)
+        time_format_in_origin_file_name = start_date.strftime('%Y_%m_%d')
