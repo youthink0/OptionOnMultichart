@@ -94,7 +94,6 @@ def get_transaction_second_df_to_price_name(price_name, transaction_second_index
     price_name = price_name.replace(0.0,np.nan) #把沒成交價的地方改成NaN，方便後續處理
     price_name = price_name.reindex(transaction_second_index) #把缺失的index補足，084500~134500
     price_name = price_name.fillna(method = 'ffill') #有NaN之處補上前筆交易的成交價格
-    
     ###補充1 : 若開盤一段時間內沒有交易資料則捨棄，直到有交易資料###
     ###補充2 : 如果前秒有值下秒沒有的話就要遵照前一秒的值###
     
@@ -220,41 +219,63 @@ def group_by_strike_price(txo_df ,time_format_in_origin_file_name, transaction_s
             get_import_form(price_name, strike_price_start_value) #生成每個履約價的逐筆成交點數
         
         
-        #####找到逐筆時間的價平和#####
+        #####用第一筆資料找尋當天的價平履約價#####
         if price_flat_sum_df_exist_flag == 0:
-            price_flat_sum['min_call'] = price_name['call']
-            price_flat_sum['min_put'] = price_name['put']
-            price_flat_sum['min_strike_price'] = str(strike_price_start_value) #此DF用來尋找價平和
+            min_call = price_name['call'][0]
+            min_put = price_name['put'][0]
+            min_strike_price = str(strike_price_start_value) 
             price_flat_sum_df_exist_flag = 1
         else :
-            price_flat_sum['new_call'] = price_name['call']
-            price_flat_sum['new_put'] = price_name['put']
-            price_flat_sum['new_strike_price'] = str(strike_price_start_value) #此DF用來尋找價平和
-            price_flat_sum = price_flat_sum.replace(np.nan,-1) #把沒成交價的地方改成NaN，方便後續處理
+            new_call = price_name['call'][0]
+            new_put = price_name['put'][0]
+            new_strike_price = str(strike_price_start_value) 
             
-            condition = price_flat_sum['new_call'] + price_flat_sum['new_put'] < price_flat_sum['min_call'] + price_flat_sum['min_put']
-            con1 = price_flat_sum['min_call'] == float(-1) 
-            con2 = price_flat_sum['min_put'] == float(-1)
-            con3 = price_flat_sum['new_call'] != float(-1)
-            con4 = price_flat_sum['new_put'] != float(-1)
-            k = (condition | con1 | con2) & con3 & con4
-            price_flat_sum['min_strike_price'] = np.where(k, price_flat_sum['new_strike_price'], price_flat_sum['min_strike_price'] )
-            price_flat_sum['min_call'] = np.where(k, price_flat_sum['new_call'], price_flat_sum['min_call'] )
-            price_flat_sum['min_put'] = np.where(k, price_flat_sum['new_put'], price_flat_sum['min_put'] )
-            price_flat_sum['k'] = k
+            min_tmp = min_call + min_put
+            new_tmp = new_call + new_put
+            if not np.isnan(new_tmp):
+                if np.isnan(min_tmp):
+                    min_call = new_call
+                    min_put = new_put
+                    min_strike_price = new_strike_price
+                else:
+                    if new_tmp < min_tmp:
+                        min_call = new_call
+                        min_put = new_put
+                        min_strike_price = new_strike_price
             #min_call:價平之call min_put:價平之put min_strike_price:價平履約價
-        #print(price_flat_sum)
-        
-        
-        #price_flat_sum[str(strike_price_start_value)] = price_name['成交價格'] #此DF用來尋找價平和
-    price_flat_sum.rename(columns={'min_call':'call','min_put':'put'}, inplace = True)
+    
+    #####把開倉最小call+put之該履約價當作當天價平#####
+    price_flat_sum = txo_df[ txo_df['履約價格'] == str(min_strike_price) ] #依照不同履約價分類df
+    price_flat_sum = price_flat_sum.reset_index(drop = True)
+
+    price_flat_sum['買賣權別'] = price_flat_sum['買賣權別'].str.replace(' ','') #消除空白
+    price_name = price_name.reset_index(drop=True) 
+
+    #####多call & put欄位存放個別成交價格#####
+    price_flat_sum['call'] = price_flat_sum['成交價格'][ price_flat_sum['買賣權別'] == 'C' ]
+    price_flat_sum['put'] = price_flat_sum['成交價格'][ price_flat_sum['買賣權別'] == 'P' ]
+
+    #####濾掉多餘欄位#####
+    price_flat_sum = price_flat_sum[['成交時間','call','put']]  
+
+    #####建立時間逐筆資料#####
+    #function
+    price_flat_sum = get_transaction_second_df_to_price_name(price_flat_sum, transaction_second_index)
+
+
+    time_format_in_origin_file_name = time_format_in_origin_file_name.replace('_','')
+    price_flat_sum['成交日期'] = time_format_in_origin_file_name 
+    price_flat_sum.reset_index(level=0, inplace=True) #成交時間賦歸欄位
+
+    #####完整的當天個別履約價逐筆資料df#####
+    price_flat_sum = price_flat_sum[['成交日期','成交時間','call','put']]
+    price_flat_sum['min_strike_price'] = str(min_strike_price)
     price_flat_sum = price_flat_sum.reset_index(drop=True)
     #print(price_flat_sum)
-    price_flat_sum['成交時間'] = price_name['Time'] #用'成交時間'會error,因為call了get_import_form後已經改變了欄位名字
-    price_flat_sum['成交日期'] = price_name['Date']
-    price_flat_sum = price_flat_sum[['min_strike_price','call','put', '成交日期', '成交時間']]
-    #price_flat_sum.to_csv('_test_strike_price.csv', index = False)
     
+    price_flat_sum = price_flat_sum[['min_strike_price','call','put', '成交日期', '成交時間']]
+    
+    #print(price_flat_sum)
     #function
     get_import_form(price_flat_sum, 'price_flat_sum')
     
@@ -328,15 +349,15 @@ def get_import_form(price_name, strike_price_start_value): #整理成QM讀取CSV
 def output_to_csv_by_strike_price(complete_strike_price_data, Filename) :
     
     #####設定輸出位置#####
-    my_folder_path = "C:/Users/a0985/OneDrive/Desktop/期貨/資料/op_data_add" #到價平和資料夾
-    file_address = my_folder_path + "/" + "_op_price_" + Filename + "_add.csv"
+    my_folder_path = "C:/Users/a0985/OneDrive/Desktop/期貨/資料/op_data" #到價平和資料夾
+    file_address = my_folder_path + "/" + "_op_price_" + Filename + ".csv"
     
     if os.path.isfile(file_address) : 
         
         previous_data = pd.read_csv(file_address)
         #print(Filename, previous_data)
-        if not previous_data.empty:
-            previous_data = previous_data[ previous_data['Date'] != np.unique(previous_data['Date'])[0] ]
+        #if not previous_data.empty:
+        #    previous_data = previous_data[ previous_data['Date'] != np.unique(previous_data['Date'])[0] ]
         previous_data = previous_data.append(complete_strike_price_data)
         previous_data = previous_data.reset_index(drop = True) #目錄重置
         #print(previous_data)
@@ -354,9 +375,9 @@ def output_to_csv_by_strike_price(complete_strike_price_data, Filename) :
 
 if __name__ == "__main__":
     n = 1
-    #start_date = datetime.datetime(2020, 7, 6) #代表資料從何時開始
-    start_date = datetime.date.today() #代表資料從何時開始
-    start_date = start_date - datetime.timedelta(days=1)
+    start_date = datetime.datetime(2020, 8, 1) #代表資料從何時開始
+    #start_date = datetime.date.today() #代表資料從何時開始
+    #start_date = start_date - datetime.timedelta(days=1)
     end_date = datetime.date.today()
     end_date = end_date.strftime('%Y_%m_%d')
     
