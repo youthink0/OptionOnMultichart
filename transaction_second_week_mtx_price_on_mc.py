@@ -2,6 +2,10 @@ import pandas as pd
 import datetime
 import os
 import numpy as np
+import urllib
+import urllib.request
+import zipfile
+
 
 whether_data_is_null_flag = 0 #若查無原始檔則掛起1
 
@@ -58,7 +62,7 @@ def find_near_month(deadline_list):
     if week_flag == 0 : #月選直接抓最近月，第二個禮拜三
         near_month = min(deadline_list)
         near_month = float(near_month) #不寫這個會報錯
-        #near_month = int(near_month)
+        near_month = int(near_month)
         near_month = str(near_month)
         
     else : #平常只會有一倉，週三會有兩個，要抓最近
@@ -107,6 +111,22 @@ def get_transaction_second_df_to_price_name(price_name, transaction_second_index
 
 
 
+def get_today_rpt(rpt_name) :
+    print("downloading with urllib")
+    url = 'https://www.taifex.com.tw/file/taifex/Dailydownload/Dailydownload/' + rpt_name 
+    urllib.request.urlretrieve(url, rpt_name)
+
+
+    zip_name = rpt_name #壓縮文件名
+
+    file_dir = 'C:/Users/a0985/OneDrive/Desktop/txf_rpt/2020unzip' #解壓後的文件放在該目錄下
+    with zipfile.ZipFile(zip_name, 'r') as myzip:
+        for file in myzip.namelist():
+            myzip.extract(file,file_dir)
+
+    delete_daily_zip_address =  os.path.abspath('.') + "\\" + rpt_name
+    os.remove(delete_daily_zip_address)
+
 
 def read_origin_data(time_format_in_origin_file_name) :
     global whether_data_is_null_flag
@@ -134,12 +154,13 @@ def preprocess(origin_df) :
     deadline_list.drop_duplicates(inplace = True)
     #function
     near_month = find_near_month(deadline_list) #得到最近到期月份(周別)
-    
+    print(near_month)
     
     #####df篩選出符合最近到期月份(周別)#####
     mtx_origin_df = mtx_origin_df.reset_index(drop = True) #目錄重置
     mtx_df = mtx_origin_df[ mtx_origin_df['到期月份(週別)'] == near_month ] 
     mtx_df = mtx_df.reset_index(drop = True) #目錄重置
+    print(mtx_df)
     
     #####轉為int格式，消掉data多餘空白#####
     mtx_df['成交日期'] = mtx_df['成交日期'].astype(int)
@@ -199,6 +220,7 @@ def get_import_form(price_name, strike_price_start_value): #整理成QM讀取CSV
     
     #####'Date', 'Time', 'Price','Volume'為QM的import格式#####
     price_name.rename(columns={'成交時間':'Time','成交日期':'Date','成交價格':'Price'}, inplace = True)
+    price_name['Date'] = price_name['Date'].astype(str)
     price_name['Volume'] = 0    
     
     ###
@@ -219,7 +241,7 @@ def get_import_form(price_name, strike_price_start_value): #整理成QM讀取CSV
 def output_to_csv_by_strike_price(complete_strike_price_data, Filename) :
     
     #####設定輸出位置#####
-    my_folder_path = "C:/Users/a0985/OneDrive/Desktop/期貨/資料/week_mtx_data" #到周選mtx資料夾
+    my_folder_path = "C:/Users/a0985/OneDrive/Desktop/期貨/資料/txf_data" #到周選txf資料夾
     file_address = my_folder_path + "/"  + Filename + ".csv"
     
     if os.path.isfile(file_address) : 
@@ -241,10 +263,11 @@ def output_to_csv_by_strike_price(complete_strike_price_data, Filename) :
 
 if __name__ == "__main__":
     n = 1
-    start_date = datetime.datetime(2020, 8, 1) #代表資料從何時開始
-    #start_date = datetime.date.today() #代表資料從何時開始
+    #start_date = datetime.datetime(2020, 8, 21) #代表資料從何時開始
+    start_date = datetime.date.today() #代表資料從何時開始
     #start_date = start_date - datetime.timedelta(days=1)
     end_date = datetime.date.today()
+    end_date = end_date + datetime.timedelta(days=1)
     end_date = end_date.strftime('%Y_%m_%d')
     
     transaction_second_index = list() #交易時段為8:45:00 ~ 13:45:00
@@ -253,6 +276,10 @@ if __name__ == "__main__":
     transaction_second_index = get_transaction_second_index(transaction_second_index)
     
     time_format_in_origin_file_name = start_date.strftime('%Y_%m_%d') #原始檔名稱用YY_MM_DD表示  
+    
+    rpt_name = 'Daily_' + str(time_format_in_origin_file_name) + '.zip'
+    
+    get_today_rpt(rpt_name)
     
     while time_format_in_origin_file_name != end_date : #匯入資料直到指定停止日期
         start_date = start_date + datetime.timedelta(days=n)
