@@ -64,7 +64,7 @@ def get_transaction_second_df_to_price_name(price_name, transaction_second_index
     return price_name;
 
 def find_near_month(deadline_list, weekofday, day_flag):
-    print(deadline_list)
+    #print(deadline_list)
     week_flag = 0 #判斷週選則掛起1
     for i in deadline_list: #判斷要抓周選還月選
         if 'W4' in str(i) and weekofday == 3 and day_flag == 1: #第三周的禮拜三日盤要看月選
@@ -423,8 +423,8 @@ def process_by_time_gap(origin_df, transaction_second_index, start_date, day_fla
         
         
 if __name__ == "__main__":
-    start_date = datetime.datetime(2019, 12, 31) #代表資料從何時開始
-    #start_date = datetime.date.today() #代表資料從何時開始
+    #start_date = datetime.datetime(2020, 9, 3) #代表資料從何時開始
+    start_date = datetime.date.today() #代表資料從何時開始
     #start_date = start_date - datetime.timedelta(days=1)
     end_date = datetime.date.today()
     end_date = end_date + datetime.timedelta(days=1)
@@ -435,8 +435,11 @@ if __name__ == "__main__":
         
         #####上期交所抓原始zip檔並解壓到特定資料夾#####
         #function
-        rpt_name = 'OptionsDaily_' + str(time_format_in_origin_file_name) 
-        #get_today_rpt(rpt_name)
+        if start_date.isoweekday() == 6 or start_date.isoweekday() == 7:
+            a = 1
+        else:
+            rpt_name = 'OptionsDaily_' + str(time_format_in_origin_file_name) 
+            get_today_rpt(rpt_name)
         
         #####讀取原始資料#####
         #function
@@ -444,6 +447,7 @@ if __name__ == "__main__":
         print(time_format_in_origin_file_name,whether_data_is_null_flag)
         
         if(whether_data_is_null_flag == 0):
+            
             #####前日下午盤(夜盤)時段逐秒list#####
             transaction_second_index = list() #交易時段為15:00:00 ~ 23:59:59
             #function
