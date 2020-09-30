@@ -115,8 +115,8 @@ def Form_to_DataFrame(six_part, find_price_flat_flag, only_today_night_flag , dt
                 a_series = pd.Series(bar_information_list, index = df.columns)
                 df = df.append(a_series, ignore_index=True) #把每一列依序存進df
                 break;
-        else: #盼頓日夜盤寫好
-            if str(Datelist[i]) == str(dt1) and int(Time_list[i]) >= 150000 and int(Time_list[i]) <= 50000: #可抓夜盤
+        else: #判斷日夜盤寫好
+            if str(Datelist[i]) == str(dt1) and int(Time_list[i]) >= 150000 and int(Time_list[i]) <= 50000: #不可抓前日夜盤
                 a = 1
             else:
                 a_series = pd.Series(bar_information_list, index = df.columns)
