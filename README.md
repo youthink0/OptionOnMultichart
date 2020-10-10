@@ -1,5 +1,5 @@
 # OptionOnMultichart
-整理並匯出選擇權周選及月選(看最近到期)的每日逐筆call&amp;put資料的csv檔，以及價平履約價csv檔，供Multichart讀取  
+>整理並匯出選擇權周選及月選(看最近到期)的每日逐筆call&amp;put資料的csv檔，以及價平履約價csv檔，供Multichart讀取  
 
 #邏輯講解:  
 1.每日的call&put資訊由來為抓取逐筆資料中, 有符合最近到期日期者  
