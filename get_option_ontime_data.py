@@ -22,6 +22,7 @@ dic = [
 def conversion_table(flag, month): #flag = 1為call, flag = 0為put
     #期交所規定call put月份代號
     
+    
     #call
     call_table = { 1:"A", 2:"B", 3:"C", 4:"D", 5:"E", 6:"F", 7:"G", 8:"H", 9:"I", 10:"J", 11:"K", 12:"L" }
     #put
