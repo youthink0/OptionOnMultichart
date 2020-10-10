@@ -28,6 +28,7 @@ def get_transaction_second_index(transaction_second_index, start_time, break_tim
         if transaction_second == break_time:
             break;
     
+    
     return transaction_second_index;
             
 def erase_redundant_space_and_value(origin_df) :
