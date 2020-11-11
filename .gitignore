@@ -1,3 +1,4 @@
 *.rpt
 *.csv
 .DS_Store
+*.png

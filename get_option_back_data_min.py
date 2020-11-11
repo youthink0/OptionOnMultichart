@@ -65,8 +65,8 @@ def get_transaction_second_df_to_price_name(price_name, transaction_second_index
     price_name = price_name.reindex(transaction_second_index)  # 把缺失的index補足
     price_name[['call', 'put']] = price_name[['call', 'put']].fillna(
         method='ffill')  # 有NaN之處補上前筆交易的成交價格
-    price_name[['call_Volume', 'put_Volume']] = price_name[[
-        'call_Volume', 'put_Volume']].fillna(0)  # 有NaN之處補上0
+    price_name[['call', 'put']] = price_name[['call', 'put']].fillna(method='bfill')
+    price_name[['call_Volume', 'put_Volume']] = price_name[['call_Volume', 'put_Volume']].fillna(0)  # 有NaN之處補上0
     ###補充1 : 若開盤一段時間內沒有交易資料則捨棄，直到有交易資料###
     ###補充2 : 如果前秒有值下秒沒有的話就要遵照前一秒的值###
 
@@ -76,7 +76,6 @@ def get_transaction_second_df_to_price_name(price_name, transaction_second_index
 def find_near_month(deadline_list, weekofday, day_flag):
 
     week_flag = False  # 判斷週選則為True
-
     for i in deadline_list:  # 判斷要抓周選還月選
         if 'W4' in str(i) and weekofday == 3 and day_flag == trading_hours.am:  # 第三周的禮拜三日盤要看月選
             week_flag = False
@@ -88,15 +87,17 @@ def find_near_month(deadline_list, weekofday, day_flag):
     if week_flag is False:  # 月選直接抓最近月
         deadline_in_month = list()
         for i in deadline_list:  # 因第三周的禮拜三日盤要看月選,所以這裡主要是要把該天的W4濾掉
-            if 'W' not in i:
+            if 'W' not in str(i):
                 deadline_in_month.append(i)
-
+        deadline_in_month = [int(x) for x in deadline_in_month]
         near_month = min(deadline_in_month)
         near_month = str(near_month)
 
     else:  # 平常只會有一倉，週三會有兩個，要抓最近
         # 篩選有W的項出來
-        deadline_list = deadline_list[deadline_list.str.contains("W")]
+
+        deadline_list = deadline_list.loc[deadline_list.str.contains(
+            "W", na=False)]
         deadline_in_week = list()
 
         for i in deadline_list.str.split("W"):
@@ -151,8 +152,7 @@ def preprocess(origin_df, day_flag):
     #function
     txo_origin_df = erase_redundant_space_and_value(
         origin_df)  # 消除column空白處及多餘value
-    origin_df = origin_df.rename(columns={'交易日期': '成交日期'})
-
+    txo_origin_df = txo_origin_df.rename(columns={'交易日期': '成交日期'})
     if day_flag == trading_hours.am:  # 日盤
         #####篩選日盤交易逐筆資料(當天)並刪掉指定條件重複列#####
         k1 = (txo_origin_df['成交時間'] >= 84500) & (
@@ -169,7 +169,7 @@ def preprocess(origin_df, day_flag):
 
     txo_origin_df = txo_origin_df[k1]
     if txo_origin_df.empty:
-        return 0, 0  # dataframe無值
+        return pd.DataFrame(), 0, 0  # dataframe無值
     date_tmp = str(txo_origin_df['成交日期'].iloc[0])
     date_tmp = parse(date_tmp)
     date_tmp_week = date_tmp.isoweekday()  # 此時是星期幾，做為最近到期判斷用
@@ -180,9 +180,10 @@ def preprocess(origin_df, day_flag):
     #function
     near_month = find_near_month(
         deadline_list, date_tmp_week, day_flag)  # 得到最近到期月份(周別)
-
+    near_month = near_month.strip()
     #####df篩選出符合最近到期月份(周別)#####
     txo_origin_df = txo_origin_df.reset_index(drop=True)  # 目錄重置
+    txo_origin_df['到期月份(週別)'] = txo_origin_df['到期月份(週別)'].astype(str).apply(lambda x: x.split(".")[0])
     txo_df = txo_origin_df[txo_origin_df['到期月份(週別)'] == near_month]
     txo_df = txo_df.reset_index(drop=True)  # 目錄重置
     #####轉為int格式，消掉data多餘空白#####
@@ -204,13 +205,10 @@ def preprocess(origin_df, day_flag):
     txo_df['排序依據'] = txo_df['履約價格'] + txo_df['排序依據']
     txo_df = txo_df.sort_values(['排序依據'], ascending=True)  # 根據時間由遠到近sort
     txo_df = txo_df.reset_index(drop=True)  # sort後目錄重置
-
     return txo_df, date_tmp, near_month
 
 
 def group_by_strike_price(txo_df, date_tmp, transaction_second_index):
-    price_flat_sum_df_exist_flag = 0  # price_flat_sum專門用來找價平履約價,此為用來記錄此df是否存在
-    price_flat_sum_df_exist_flag_for_night = 0
     #日盤如果84500遍歷後沒找到價平,則會重跑loop,此flag為避免重複call function
     #夜盤則為1345400收盤時
     min_flat_sum = 9999
@@ -309,10 +307,9 @@ def tick_to_min(df):
     df.drop_duplicates(subset=['Time'], inplace=True)
     df['Time'] = df['Time'].apply(lambda x: x * 100)
     df['Time'] = df['Time'].shift(periods=-1)
-    df['Time'] = df['Time'].astype(str)
-    df['Time'] = df['Time'].replace(to_replace="\.0+$", value="", regex=True)
-
     df = df[:-1]
+    df['Time'] = df['Time'].astype(np.int64)
+
     df = df.drop(['Price'], axis=1)
     df = df[['Date', 'Time', 'O', 'H', 'L', 'C', 'Volume']]
     return df
@@ -322,7 +319,6 @@ def get_import_form(price_name, strike_price_start_value):  # 整理成QM讀取C
 
     #####輸出csv的名字依照履約價命名#####
     Filename: str = str(strike_price_start_value)
-
     #####'Date', 'Time', 'Price','Volume'為QM的import格式#####
     price_name.rename(columns={'成交時間': 'Time', '成交日期': 'Date'}, inplace=True)
     if 'min_strike_price' in price_name.columns:  # 若此df為記錄價平和，則volume存放當筆之價平和履約價
@@ -399,7 +395,7 @@ def output_to_csv_by_strike_price(complete_strike_price_data, Filename):
     if not os.path.exists(my_folder_path):
         os.makedirs(my_folder_path)
     file_address = my_folder_path + "/" + "_option_back_" + Filename + ".csv"
-
+    file_address = "temp.csv"
     if os.path.isfile(file_address):
         previous_data = pd.read_csv(file_address)
         # if not previous_data.empty: #更新今天資訊後，把最早那天的資訊刪除
@@ -421,6 +417,8 @@ def process_by_time_gap(origin_df, transaction_second_index, day_flag, i):
     #function
     #第一個變數為原始檔資料,第三個為當天日期
     txo_df, date_tmp, near_month = preprocess(origin_df, day_flag)
+    if txo_df.empty is True:
+        return
     #####判斷是周/月選的履約價
     unit = 0
     if 'W' in str(near_month):
@@ -438,6 +436,8 @@ def process_by_time_gap(origin_df, transaction_second_index, day_flag, i):
     tmp_strike_price = int(int(min_strike_price) + i * unit)
     price_name = find_price_flat_sum(
         txo_df, tmp_strike_price, transaction_second_index, date_tmp)
+    if price_name.empty is True:
+        return
     if day_flag == trading_hours.pm:  # 下午盤先加入夜盤df中
         night_df = price_name
     elif day_flag == trading_hours.midnight:  # 凌晨盤跟下午盤合併成夜盤
@@ -455,11 +455,11 @@ def process_by_time_gap(origin_df, transaction_second_index, day_flag, i):
 
 
 if __name__ == "__main__":
-    # start_date = datetime.datetime(2017, 1, 1) #代表資料從何時開始
-    start_date = datetime.date.today()  # 代表資料從何時開始
-    start_date = start_date - datetime.timedelta(days=1)
-    end_date = datetime.date.today()
-    # end_date = end_date + datetime.timedelta(days=1)
+    start_date = datetime.datetime(2017, 3, 2)  # 代表資料從何時開始
+    # start_date = datetime.date.today()  # 代表資料從何時開始
+    # start_date = start_date - datetime.timedelta(days=1)
+    # end_date = datetime.date.today()
+    end_date = start_date + datetime.timedelta(days=1)
     end_date = end_date.strftime('%Y_%m_%d')
 
     time_format_in_origin_file_name = start_date.strftime(
@@ -468,6 +468,8 @@ if __name__ == "__main__":
         #####上期交所抓原始zip檔並解壓到特定資料夾#####
         #function
         if start_date.isoweekday() == 6 or start_date.isoweekday() == 7:
+            start_date = start_date + datetime.timedelta(days=1)
+            time_format_in_origin_file_name = start_date.strftime('%Y_%m_%d')
             continue
         else:
             rpt_name = 'OptionsDaily_' + str(time_format_in_origin_file_name)
@@ -479,12 +481,15 @@ if __name__ == "__main__":
                 get_today_rpt(rpt_name)
                 origin_df, has_found = read_origin_data(
                     time_format_in_origin_file_name)
-
+                if has_found is False:
+                    start_date = start_date + datetime.timedelta(days=1)
+                    time_format_in_origin_file_name = start_date.strftime(
+                        '%Y_%m_%d')
+                    continue
         #####讀取原始資料#####
         #function
-        print(
-            f"Date: {time_format_in_origin_file_name}. Status: {rpt_has_found}")
-        for i in range(5):  # 價平到價外五檔
+        print(f"Date: {time_format_in_origin_file_name}. Status: {rpt_has_found}")
+        for i in range(6):  # 價平到價外五檔
             #####前日下午盤(夜盤)時段逐秒list#####
             night_df = pd.DataFrame()
             transaction_second_index = list()  # 交易時段為15:00:00 ~ 23:59:59
