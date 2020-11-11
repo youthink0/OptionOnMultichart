@@ -434,8 +434,8 @@ def process_by_time_gap(origin_df, transaction_second_index, day_flag, i):
     #####找完價平履約價後,接著就生成該履約價的df#####
     #function
     tmp_strike_price = int(int(min_strike_price) + i * unit)
-    price_name = find_price_flat_sum(
-        txo_df, tmp_strike_price, transaction_second_index, date_tmp)
+    price_name = find_price_flat_sum(txo_df, tmp_strike_price, transaction_second_index, date_tmp)
+    price_name.dropna(inplace=True)
     if price_name.empty is True:
         return
     if day_flag == trading_hours.pm:  # 下午盤先加入夜盤df中
