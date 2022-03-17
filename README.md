@@ -1,7 +1,5 @@
 # Option做成Multichart上的商品
 >整理並匯出選擇權周選及月選(看最近到期)的每日逐筆call&amp;put資料的csv檔，以及價平履約價csv檔，供Multichart讀取  
-
-* 怕
   
 ## 邏輯講解:
 
